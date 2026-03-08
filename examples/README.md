@@ -1,6 +1,6 @@
 # Examples
 
-Practical usage patterns for `openclaw-skill-claude-code` adapted for OpenAI Codex.
+Practical usage patterns for `openclaw-skill-codex-cli`.
 
 ---
 

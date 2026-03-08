@@ -1,4 +1,4 @@
-# openclaw-skill-claude-code
+# openclaw-skill-codex-cli
 
 **Async OpenAI Codex task runner for OpenClaw — delegate heavy work to Codex, get results delivered automatically to your chat.**
 
@@ -204,7 +204,7 @@ It is not designed for multi-user setups, public-facing servers, or environments
 Clone into your OpenClaw skills directory:
 
 ```bash
-git clone https://github.com/VsevolodUstinov/openclaw-skill-claude-code.git \
+git clone https://github.com/sbrin/openclaw-skill-codex-cli.git \
   ~/.openclaw/workspace/skills/codex-code-task
 ```
 
@@ -560,7 +560,7 @@ Other channels (Slack, Discord, Signal, etc.) may work in principle if OpenClaw 
 ## File Structure
 
 ```text
-openclaw-skill-claude-code/
+openclaw-skill-codex-cli/
 ├── README.md              # This file
 ├── LICENSE                # MIT
 ├── SKILL.md               # OpenClaw skill definition (loaded into agent context)
@@ -582,5 +582,9 @@ openclaw-skill-claude-code/
 MIT — see [LICENSE](LICENSE).
 
 ---
+
+## Credits
+
+Forked from [openclaw-skill-claude-code](https://github.com/VsevolodUstinov/openclaw-skill-claude-code).
 
 *Built on top of [OpenClaw](https://docs.openclaw.ai) and [OpenAI Codex](https://developers.openai.com/codex).*
