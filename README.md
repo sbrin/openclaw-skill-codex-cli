@@ -205,14 +205,14 @@ Clone into your OpenClaw skills directory:
 
 ```bash
 git clone https://github.com/sbrin/openclaw-skill-codex-cli.git \
-  ~/.openclaw/workspace/skills/codex-code-task
+  ~/.openclaw/workspace/skills/codex-cli-task
 ```
 
 Copy the notification helper to your scripts directory:
 
 ```bash
 mkdir -p ~/.openclaw/workspace/scripts
-cp ~/.openclaw/workspace/skills/codex-code-task/scripts/openclaw_notify.py \
+cp ~/.openclaw/workspace/skills/codex-cli-task/scripts/openclaw_notify.py \
    ~/.openclaw/workspace/scripts/openclaw_notify.py
 ```
 
@@ -286,7 +286,7 @@ Complex prompts contain quotes, backticks, newlines, and markdown. These break s
 cat > /tmp/codex-prompt.txt << 'EOF'
 Your task here, with any quotes "or" 'symbols' you need
 EOF
-nohup python3 ~/.openclaw/workspace/skills/codex-code-task/run-task.py \
+nohup python3 ~/.openclaw/workspace/skills/codex-cli-task/run-task.py \
   -t "$(cat /tmp/codex-prompt.txt)" \
   ...
 
@@ -304,7 +304,7 @@ Create a Python script that monitors a directory for new files and prints their 
 Save it as file-watcher.py with full error handling and a --help flag.
 EOF
 
-nohup python3 ~/.openclaw/workspace/skills/codex-code-task/run-task.py \
+nohup python3 ~/.openclaw/workspace/skills/codex-cli-task/run-task.py \
   --task "$(cat /tmp/codex-prompt.txt)" \
   --project ~/projects/file-watcher \
   --session "agent:main:whatsapp:group:YOUR_GROUP_JID@g.us" \
@@ -333,7 +333,7 @@ Compare performance benchmarks, supported models, deployment complexity, and com
 What are practitioners actually using in production and why?
 EOF
 
-nohup python3 ~/.openclaw/workspace/skills/codex-code-task/run-task.py \
+nohup python3 ~/.openclaw/workspace/skills/codex-cli-task/run-task.py \
   --task "$(cat /tmp/codex-prompt.txt)" \
   --project /tmp/codex-research \
   --session "agent:main:whatsapp:group:YOUR_GROUP_JID@g.us" \
@@ -348,7 +348,7 @@ Pick up where a previous task left off — full conversation context is preserve
 
 ```bash
 # Step 1: Run initial task (note the session ID from logs)
-nohup python3 ~/.openclaw/workspace/skills/codex-code-task/run-task.py \
+nohup python3 ~/.openclaw/workspace/skills/codex-cli-task/run-task.py \
   --task "$(cat /tmp/research-prompt.txt)" \
   --project ~/projects/myapp \
   --session "SESSION_KEY" \
@@ -366,7 +366,7 @@ Use the decisions you discussed previously.
 Create the full implementation with tests.
 EOF
 
-nohup python3 ~/.openclaw/workspace/skills/codex-code-task/run-task.py \
+nohup python3 ~/.openclaw/workspace/skills/codex-cli-task/run-task.py \
   --task "$(cat /tmp/codex-implement.txt)" \
   --project ~/projects/myapp \
   --session "SESSION_KEY" \
@@ -378,7 +378,7 @@ nohup python3 ~/.openclaw/workspace/skills/codex-code-task/run-task.py \
 ### Long task with extended timeout
 
 ```bash
-nohup python3 ~/.openclaw/workspace/skills/codex-code-task/run-task.py \
+nohup python3 ~/.openclaw/workspace/skills/codex-cli-task/run-task.py \
   --task "$(cat /tmp/codex-prompt.txt)" \
   --project ~/projects/backend \
   --session "SESSION_KEY" \
@@ -454,7 +454,7 @@ For long tasks, include this instruction in your prompt to have Codex send its o
 
 ```text
 Send progress updates via bash (background, no agent wake):
-python3 ~/.openclaw/workspace/skills/codex-code-task/scripts/openclaw_notify.py \
+python3 ~/.openclaw/workspace/skills/codex-cli-task/scripts/openclaw_notify.py \
   -g "YOUR_GROUP_JID@g.us" -m "YOUR_STATUS" --bg
 
 Send updates at milestones: after each major step, every ~10 items processed, on errors.
@@ -533,14 +533,14 @@ Heartbeats only send if `--session` is provided and the target can be resolved f
 ### Check running tasks
 
 ```bash
-ls ~/.openclaw/workspace/skills/codex-code-task/pids/
+ls ~/.openclaw/workspace/skills/codex-cli-task/pids/
 # → 20260308-090841-Research-on-X.pid
 ```
 
 To check if a task is still running:
 
 ```bash
-cat ~/.openclaw/workspace/skills/codex-code-task/pids/*.pid
+cat ~/.openclaw/workspace/skills/codex-cli-task/pids/*.pid
 ps aux | grep <PID>
 ```
 

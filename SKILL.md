@@ -1,5 +1,5 @@
 ---
-name: codex-code-task
+name: codex-cli-task
 description: "Launch OpenAI Codex CLI async in background with automatic delivery to Telegram/WhatsApp. Use for coding, refactoring, codebase research, file generation, and complex multi-step automations. NOT for quick one-off questions or real-time interactive tasks. Includes strict thread-safe routing + E2E operator validation workflow."
 metadata:
   {
@@ -344,9 +344,9 @@ Telegram has two distinct thread models. The key difference for `run-task.py` is
 - Both channel notification and agent wake attempted on any failure
 
 ### PID tracking
-- PID file written to `skills/codex-code-task/pids/`
+- PID file written to `skills/codex-cli-task/pids/`
 - Stale PIDs cleaned on startup
-- Can check running tasks: `ls skills/codex-code-task/pids/`
+- Can check running tasks: `ls skills/codex-cli-task/pids/`
 
 ### Silent mode (Telegram only)
 Telegram supports silent notifications (no sound).

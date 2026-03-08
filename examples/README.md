@@ -23,7 +23,7 @@ Requirements:
 Save to the project directory.
 EOF
 
-nohup python3 ~/.openclaw/workspace/skills/codex-code-task/run-task.py \
+nohup python3 ~/.openclaw/workspace/skills/codex-cli-task/run-task.py \
   --task "$(cat /tmp/codex-prompt.txt)" \
   --project ~/projects/json-diff \
   --session "agent:main:whatsapp:group:YOUR_GROUP_JID@g.us" \
@@ -60,7 +60,7 @@ Specifically:
 - Real examples from engineering blogs, forum posts, and case studies preferred.
 EOF
 
-nohup python3 ~/.openclaw/workspace/skills/codex-code-task/run-task.py \
+nohup python3 ~/.openclaw/workspace/skills/codex-cli-task/run-task.py \
   --task "$(cat /tmp/codex-prompt.txt)" \
   --project /tmp/codex-research \
   --session "agent:main:whatsapp:group:YOUR_GROUP_JID@g.us" \
@@ -94,7 +94,7 @@ Focus on:
 Be specific — name files, functions, line numbers where relevant.
 EOF
 
-nohup python3 ~/.openclaw/workspace/skills/codex-code-task/run-task.py \
+nohup python3 ~/.openclaw/workspace/skills/codex-cli-task/run-task.py \
   --task "$(cat /tmp/phase1.txt)" \
   --project ~/projects/my-service \
   --session "agent:main:whatsapp:group:YOUR_GROUP_JID@g.us" \
@@ -133,7 +133,7 @@ Specifically:
 The goal is a PR-ready diff.
 EOF
 
-nohup python3 ~/.openclaw/workspace/skills/codex-code-task/run-task.py \
+nohup python3 ~/.openclaw/workspace/skills/codex-cli-task/run-task.py \
   --task "$(cat /tmp/phase2.txt)" \
   --project ~/projects/my-service \
   --session "agent:main:whatsapp:group:YOUR_GROUP_JID@g.us" \
@@ -161,11 +161,11 @@ Process all Python files in this project:
 Work through files systematically. After every 5 files, output a progress summary.
 
 Send progress updates via bash (background, no agent wake):
-python3 ~/.openclaw/workspace/skills/codex-code-task/scripts/openclaw_notify.py \
+python3 ~/.openclaw/workspace/skills/codex-cli-task/scripts/openclaw_notify.py \
   -g "YOUR_GROUP_JID@g.us" -m "Progress: processed X/Y files" --bg
 EOF
 
-nohup python3 ~/.openclaw/workspace/skills/codex-code-task/run-task.py \
+nohup python3 ~/.openclaw/workspace/skills/codex-cli-task/run-task.py \
   --task "$(cat /tmp/codex-batch.txt)" \
   --project ~/projects/my-lib \
   --session "agent:main:whatsapp:group:YOUR_GROUP_JID@g.us" \
@@ -201,7 +201,7 @@ Read the codebase in this directory thoroughly. Then answer these questions:
 Read the code, don't guess.
 EOF
 
-nohup python3 ~/.openclaw/workspace/skills/codex-code-task/run-task.py \
+nohup python3 ~/.openclaw/workspace/skills/codex-cli-task/run-task.py \
   --task "$(cat /tmp/codex-qa.txt)" \
   --project ~/projects/unfamiliar-codebase \
   --session "agent:main:whatsapp:group:YOUR_GROUP_JID@g.us" \
