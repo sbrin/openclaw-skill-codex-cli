@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Session registry for Claude Code tasks.
+Session registry for OpenAI Codex tasks.
 Stores metadata about completed/running sessions for resumption and tracking.
 
-Registry format: ~/.openclaw/claude_sessions.json
+Registry format: ~/.openclaw/codex_sessions.json
 {
   "sessions": {
     "<session-id>": {
@@ -15,7 +15,7 @@ Registry format: ~/.openclaw/claude_sessions.json
       "last_accessed": "ISO timestamp",
       "status": "completed|failed|timeout",
       "openclaw_session": "agent:main:whatsapp:group:...",
-      "output_file": "/tmp/cc-YYYYMMDD-HHMMSS.txt",
+      "output_file": "/tmp/codex-YYYYMMDD-HHMMSS.txt",
       "cost_estimate": null
     }
   }
@@ -29,7 +29,7 @@ from pathlib import Path
 from typing import Optional, Dict, List
 
 
-REGISTRY_FILE = Path.home() / ".openclaw" / "claude_sessions.json"
+REGISTRY_FILE = Path.home() / ".openclaw" / "codex_sessions.json"
 
 
 def _ensure_registry() -> Dict:
@@ -70,7 +70,7 @@ def register_session(
     Register a new session in the registry.
 
     Args:
-        session_id: Claude Code session ID
+        session_id: Codex session ID
         label: Human-readable label for the session
         task: Full task description (will be truncated to 200 chars)
         project_dir: Absolute path to project directory

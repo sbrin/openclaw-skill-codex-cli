@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
 """
-Run Claude Code task in background, notify originating session when done.
-Zero OpenClaw tokens while Claude Code works.
+Run OpenAI Codex CLI in the background and notify the originating OpenClaw session when done.
+Zero OpenClaw tokens while Codex works.
 
 Usage:
-  nohup python3 run-task.py -t "Build X" -p ~/projects/x -s "SESSION_KEY" > /tmp/cc-run.log 2>&1 &
+  nohup python3 run-task.py -t "Build X" -p ~/projects/x -s "SESSION_KEY" > /tmp/codex-run.log 2>&1 &
 
 Resume previous session:
-  nohup python3 run-task.py -t "Continue with Y" -p ~/projects/x -s "SESSION_KEY" --resume <session-id> > /tmp/cc-run.log 2>&1 &
+  nohup python3 run-task.py -t "Continue with Y" -p ~/projects/x -s "SESSION_KEY" --resume <session-id> > /tmp/codex-run.log 2>&1 &
 
 Features:
-  - Session resumption: continue previous Claude Code conversations
-  - Session registry: automatic tracking in ~/.openclaw/claude_sessions.json
+  - Session resumption: continue previous Codex conversations
+  - Session registry: automatic tracking in ~/.openclaw/codex_sessions.json
   - Session labels: human-readable names for easier tracking
-  - Heartbeat pings every 60s to WhatsApp group (extracted from session key)
+  - Heartbeat pings every 60s to the originating channel
   - Timeout with graceful kill + notification
   - PID file for tracking running tasks
   - Crash-safe: notify on any failure
@@ -433,7 +433,7 @@ def trace_live(token: Optional[str], session_key: Optional[str], enabled: bool, 
 def state_file_for_project(project_name: str) -> Path:
     """State file path for per-project wake dedupe."""
     h = hashlib.sha1(project_name.encode("utf-8")).hexdigest()[:12]
-    return Path(f"/tmp/cc-orchestrator-state-{h}.json")
+    return Path(f"/tmp/codex-orchestrator-state-{h}.json")
 
 
 def load_state(path: Path) -> dict:
@@ -478,7 +478,7 @@ def notify_session(token: str, session_key: str, group_jid: Optional[str], messa
                    run_id: str = "",
                    wake_id: str = "",
                    state_path: Optional[Path] = None):
-    """Send CC result to the appropriate channel and wake the agent.
+    """Send Codex result to the appropriate channel and wake the agent.
 
     WhatsApp: sends to group + attempts sessions_send to wake agent.
     Telegram: sends direct message + uses `openclaw agent --deliver` to wake agent.
@@ -510,9 +510,9 @@ def notify_session(token: str, session_key: str, group_jid: Optional[str], messa
 
         trace_live(token, session_key, trace_enabled, "[WHATSAPP][WAKE]", "sending sessions_send wake", thread_id, reply_to)
         agent_msg = (
-            f"[CLAUDE_CODE_RESULT]\n{message}\n\n"
+            f"[CODEX_RESULT]\n{message}\n\n"
             f"---\n"
-            f"⚠️ INSTRUCTION: You received a Claude Code result. "
+            f"⚠️ INSTRUCTION: You received an OpenAI Codex result. "
             f"Process it, then send your response to the WhatsApp group using "
             f"message(action=send, channel=whatsapp, target={target or 'GROUP_JID'}, message=YOUR_SUMMARY). "
             f"Then reply NO_REPLY to avoid duplicate. Do NOT rely on announce step."
@@ -552,7 +552,7 @@ def notify_session(token: str, session_key: str, group_jid: Optional[str], messa
         # NOTE: target:topic:thread format is not supported by message tool for Telegram.
         tg_target = target
         # IMPORTANT: keep wake payload clean and non-leaky.
-        # Do NOT include internal markers like [CLAUDE_CODE_RESULT] / ⚠️ INSTRUCTION,
+        # Do NOT include internal markers like [CODEX_RESULT] / ⚠️ INSTRUCTION,
         # because in failure modes they may surface to the user chat.
         # completion_mode governs post-run behavior:
         # - single: concise summary + stop
@@ -564,16 +564,16 @@ def notify_session(token: str, session_key: str, group_jid: Optional[str], messa
         if iterative_intent:
             wake_text = (
                 f"[CC:iterate] exit={exit_code} project={project_name} output={output_file_path} limit={iter_budget} run_id={run_id} wake_id={wake_id}\n\n"
-                "Это системный wake-вызов после того, как Claude Code прислал результат по твоему же последнему запуску. "
+                "Это системный wake-вызов после того, как OpenAI Codex прислал результат по твоему же последнему запуску. "
                 "Считай это обычным продолжением того же диалога: та же личность агента, та же сессия, та же история.\n\n"
-                "Ключевое правило continuity: ориентируйся на ИСХОДНУЮ пользовательскую цель, ради которой запускался Claude Code, "
+                "Ключевое правило continuity: ориентируйся на ИСХОДНУЮ пользовательскую цель, ради которой запускался OpenAI Codex, "
                 "а не только на последний технический подшаг. Если текущий подшаг закрыт, но исходная цель ещё нет — продолжай движение к исходной цели.\n"
                 "Если видишь, что это устаревший wake по уже закрытой более новой итерации — коротко пометь его как stale и ничего не запускай.\n\n"
                 "Сделай естественное продолжение переписки. Для отладки в начале сообщения используй префикс: "
                 "[TRACE][AGENT][WAKE_RECEIVED].\n"
                 "ЖЁСТКОЕ ПРАВИЛО: silent launch запрещён. Сначала отправь отдельный видимый turn с анализом и решением ([TRACE][AGENT][DECISION]). "
                 "Только ПОСЛЕ этого, отдельным следующим действием, запускай следующую итерацию при необходимости.\n"
-                "1) коротко отреагируй на результат Claude Code,\n"
+                "1) коротко отреагируй на результат OpenAI Codex,\n"
                 "2) сопоставь результат с исходной целью пользователя и проверь, закрыта ли она полностью,\n"
                 "3) если исходная цель не закрыта — в явном виде сообщи решение continue и что именно докручиваешь, затем запусти ровно одну следующую итерацию,\n"
                 "4) если исходная цель закрыта — в явном виде сообщи решение stop и остановись."
@@ -581,9 +581,9 @@ def notify_session(token: str, session_key: str, group_jid: Optional[str], messa
         else:
             wake_text = (
                 f"[CC:single] exit={exit_code} project={project_name} output={output_file_path} limit=1 run_id={run_id} wake_id={wake_id}\n\n"
-                "Это системный wake-вызов после того, как Claude Code прислал результат по твоему же последнему запуску. "
+                "Это системный wake-вызов после того, как OpenAI Codex прислал результат по твоему же последнему запуску. "
                 "Считай это обычным продолжением того же диалога: та же личность агента, та же сессия, та же история.\n\n"
-                "Ключевое правило continuity: ориентируйся на ИСХОДНУЮ пользовательскую цель, ради которой запускался Claude Code, "
+                "Ключевое правило continuity: ориентируйся на ИСХОДНУЮ пользовательскую цель, ради которой запускался OpenAI Codex, "
                 "а не только на последний технический подшаг.\n"
                 "Если видишь, что это устаревший wake по уже закрытой более новой итерации — коротко пометь его как stale и заверши без новых действий.\n\n"
                 "Сделай естественное продолжение переписки. Для отладки в начале сообщения используй префикс: "
@@ -679,119 +679,124 @@ def format_tokens(n: int) -> str:
 
 
 def parse_stream_line(line: str, state: dict):
-    """Parse stream-json line for activity tracking, session ID capture, and active subagent count."""
+    """Parse Codex experimental JSON events for activity tracking and session capture."""
     try:
         data = json.loads(line)
-        msg_type = data.get("type", "")
+    except json.JSONDecodeError:
+        return
 
-        # Update liveness timestamp on ANY event
-        state["last_event_time"] = time.time()
+    event_type = data.get("type", "")
+    if not event_type:
+        return
 
-        # Unwrap stream_event envelope if present
-        inner = data
-        inner_type = msg_type
-        if msg_type == "stream_event":
-            inner = data.get("event", {})
-            inner_type = inner.get("type", "")
+    state["last_event_time"] = time.time()
+    state["events_since_heartbeat"] += 1
 
-        # Capture session_id from init event
-        if msg_type == "system" and data.get("subtype") == "init":
-            session_id = data.get("session_id")
-            if session_id:
-                state["session_id"] = session_id
+    if event_type == "session.created":
+        session_id = data.get("session_id")
+        if session_id:
+            state["session_id"] = session_id
+        return
 
-        # Content block events (from --include-partial-messages)
-        # Can arrive as top-level OR inside stream_event envelope
-        if inner_type == "content_block_start":
-            cb = inner.get("content_block", {})
-            if cb.get("type") == "tool_use":
-                state["last_activity"] = f"▶️ {cb.get('name', '?')} starting..."
-            elif cb.get("type") == "thinking":
-                state["last_activity"] = "🧠 Thinking..."
-        elif inner_type == "content_block_delta":
-            state["chunks_since_heartbeat"] += 1
-            delta = inner.get("delta", {})
-            if delta.get("type") == "thinking_delta":
-                state["last_activity"] = "🧠 Thinking..."
-            elif delta.get("type") == "text_delta":
-                state["last_activity"] = "✍️ Writing..."
-        elif inner_type == "content_block_stop":
-            pass  # last_event_time already updated
-        elif inner_type == "message_delta":
-            usage = inner.get("usage", {})
-            if "output_tokens" in usage:
-                state["output_tokens"] += usage["output_tokens"]
+    if event_type == "token_count":
+        info = data.get("info") or {}
+        usage = info.get("total_token_usage") or info.get("last_token_usage") or {}
+        total_tokens = usage.get("total_tokens") or usage.get("output_tokens") or 0
+        if total_tokens:
+            state["output_tokens"] = max(state["output_tokens"], int(total_tokens))
+        return
 
-        if msg_type == "assistant" and "message" in data:
-            # Extract usage from assistant message — aggregate across main + subagents
-            usage = data.get("message", {}).get("usage", {})
-            if "output_tokens" in usage:
-                state["output_tokens"] += usage["output_tokens"]
+    if not event_type.startswith("item."):
+        return
 
-            content = data["message"].get("content", [])
-            for block in content:
-                if block.get("type") == "tool_use":
-                    state["tool_calls"] += 1
-                    tool_name = block.get("name", "?")
-                    tool_input = block.get("input", {})
+    item = data.get("item") or {}
+    item_type = item.get("item_type") or item.get("type") or ""
+    item_id = item.get("id")
+    status = item.get("status", "")
 
-                    # Track active subagents by Task/Agent tool_use id
-                    if tool_name.lower() in ("task", "agent"):
-                        tid = block.get("id")
-                        if tid:
-                            state["active_subagent_ids"].add(tid)
+    if event_type == "item.started":
+        if item_id:
+            state["active_item_ids"].add(item_id)
+        if item_type == "command_execution":
+            state["tool_calls"] += 1
+            cmd = (item.get("command") or "?").strip()
+            state["last_activity"] = f"💻 {cmd[:60]}"
+        elif item_type == "reasoning":
+            state["last_activity"] = "🧠 Thinking..."
+        elif item_type == "assistant_message":
+            state["last_activity"] = "✍️ Responding..."
+        else:
+            state["last_activity"] = f"🔧 {item_type or 'working'}"
+        return
 
-                    if tool_name.lower() in ("write", "edit"):
-                        fp = tool_input.get("file_path", "?")
-                        state["files_written"].append(fp.split("/")[-1])
-                        state["last_activity"] = f"📝 {tool_name}: {fp.split('/')[-1]}"
-                    elif tool_name.lower() == "read":
-                        fp = tool_input.get("file_path", "?")
-                        state["last_activity"] = f"👁 read: {fp.split('/')[-1]}"
-                    elif tool_name.lower() == "bash":
-                        cmd = tool_input.get("command", "?")[:50]
-                        state["last_activity"] = f"💻 bash: {cmd}"
-                    elif "search" in tool_name.lower() or "grep" in tool_name.lower():
-                        state["last_activity"] = f"🔍 {tool_name}"
-                    else:
-                        state["last_activity"] = f"🔧 {tool_name}"
+    if item_id:
+        state["active_item_ids"].discard(item_id)
 
-        elif msg_type == "user" and "message" in data:
-            # Mark subagent completion when Task/Agent tool_result returns to parent
-            for block in data.get("message", {}).get("content", []):
-                if block.get("type") == "tool_result":
-                    tid = block.get("tool_use_id")
-                    if tid and tid in state["active_subagent_ids"]:
-                        state["active_subagent_ids"].discard(tid)
+    if item_type == "assistant_message":
+        text = (item.get("text") or "").strip()
+        if text:
+            state["last_message"] = text
+        state["last_activity"] = "✍️ Responding..."
+        return
 
-        elif msg_type == "system" and data.get("subtype") == "task_notification":
-            # Background task completion/failure path
-            tid = data.get("tool_use_id")
-            if tid and tid in state["active_subagent_ids"]:
-                state["active_subagent_ids"].discard(tid)
+    if item_type == "reasoning":
+        state["last_activity"] = "🧠 Thinking..."
+        return
 
-        elif msg_type == "result":
-            state["last_activity"] = "✅ finishing..."
+    if item_type == "command_execution":
+        cmd = (item.get("command") or "?").strip()
+        if status == "completed":
+            exit_code = item.get("exit_code")
+            if exit_code is None or exit_code == 0:
+                state["last_activity"] = f"💻 {cmd[:60]}"
+            else:
+                state["last_activity"] = f"⚠️ {cmd[:50]} (exit {exit_code})"
+        else:
+            state["last_activity"] = f"💻 {cmd[:60]}"
+        return
 
-    except (json.JSONDecodeError, KeyError):
-        pass
+    if item_type == "file_change":
+        changes = item.get("changes") or []
+        for change in changes:
+            path = change.get("path")
+            if path:
+                state["files_written"].append(Path(path).name)
+        if changes:
+            first = Path(changes[0].get("path") or "").name or "file"
+            state["last_activity"] = f"📝 file: {first}"
+        else:
+            state["last_activity"] = "📝 file changes"
+        return
+
+    if "search" in item_type.lower():
+        state["tool_calls"] += 1
+        state["last_activity"] = "🔍 Web search"
+        return
+
+    state["last_activity"] = f"🔧 {item_type or 'working'}"
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Run Claude Code task async")
+    parser = argparse.ArgumentParser(description="Run OpenAI Codex CLI task async")
     parser.add_argument("--task", "-t", required=True, help="Task description")
-    parser.add_argument("--project", "-p", default="/tmp/cc-scratch", help="Project directory")
+    parser.add_argument("--project", "-p", default="/tmp/codex-scratch", help="Project directory")
     parser.add_argument("--session", "-s", help="Session key to notify on completion")
-    parser.add_argument("--output", "-o", help="Output file (default: /tmp/cc-<timestamp>.txt)")
+    parser.add_argument("--output", "-o", help="Output file (default: /tmp/codex-<timestamp>.txt)")
     parser.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT,
                         help=f"Max runtime in seconds (default: {DEFAULT_TIMEOUT}s = {DEFAULT_TIMEOUT//60}min)")
-    parser.add_argument("--resume", help="Resume from previous Claude Code session ID")
+    parser.add_argument("--resume", help="Resume from previous Codex session ID")
     parser.add_argument("--session-label", help="Human-readable label for this session (e.g., 'Research on X')")
+    parser.add_argument("--model", help="Optional Codex model override")
+    parser.add_argument("--no-search", action="store_true", help="Disable Codex web search (enabled by default)")
+    parser.add_argument("--full-auto", action="store_true",
+                        help="Use Codex --full-auto instead of the default dangerous unattended mode")
+    parser.add_argument("--danger-full-access", action="store_true",
+                        help="Compatibility flag; dangerous unattended mode is already the default")
     parser.add_argument("--notify-channel", help="Channel for notifications override (telegram|whatsapp)")
     parser.add_argument("--notify-thread-id", help="Telegram thread ID for threaded mode (auto-detected from session key)")
     parser.add_argument("--notify-session-id", help="OpenClaw session UUID for precise agent wake in threads")
     parser.add_argument("--reply-to-message-id", help="Telegram message ID to reply to (for DM thread routing)")
-    parser.add_argument("--validate-only", action="store_true", help="Resolve routing and exit (no Claude run)")
+    parser.add_argument("--validate-only", action="store_true", help="Resolve routing and exit (no Codex run)")
     parser.add_argument("--allow-main-telegram", action="store_true", help="Allow Telegram launch without :thread: session (for non-thread Telegram setups)")
     parser.add_argument("--telegram-routing-mode", choices=["auto", "thread-only", "allow-non-thread"], default="auto", help="Telegram routing policy (default: auto)")
     parser.add_argument("--completion-mode", choices=["single", "iterate"], default="single",
@@ -819,7 +824,7 @@ def main():
     project = Path(args.project)
     project.mkdir(parents=True, exist_ok=True)
     ts = datetime.now().strftime("%Y%m%d-%H%M%S")
-    output_file = args.output or f"/tmp/cc-{ts}.txt"
+    output_file = args.output or f"/tmp/codex-{ts}.txt"
     run_id = str(uuid.uuid4())
     wake_id = str(uuid.uuid4())
     state_path = state_file_for_project(str(project))
@@ -946,16 +951,16 @@ def main():
             print(f"   resolved_telegram_target: {session_meta.get('telegramTarget')}")
         sys.exit(0)
 
-    exit_code = -1  # default; updated after Claude run completes
+    exit_code = -1  # default; updated after Codex run completes
     try:
         # Write PID file
         pid_file = write_pid_file(args.task[:60])
 
-        # Git init if needed (Claude Code requires a git repo)
+        # Codex should run inside a git repo; initialize one if needed.
         if not (project / ".git").exists():
             subprocess.run(["git", "init", "-q"], cwd=str(project), capture_output=True)
 
-        print(f"🔧 Starting Claude Code...", file=sys.stderr)
+        print(f"🔧 Starting OpenAI Codex...", file=sys.stderr)
         print(f"   Task: {args.task[:100]}", file=sys.stderr)
         print(f"   Project: {project}", file=sys.stderr)
         print(f"   Output: {output_file}", file=sys.stderr)
@@ -964,6 +969,11 @@ def main():
             print(f"   Resume: {args.resume}", file=sys.stderr)
         if args.session_label:
             print(f"   Label: {args.session_label}", file=sys.stderr)
+        if args.model:
+            print(f"   Model: {args.model}", file=sys.stderr)
+        print(f"   Search: {'off' if args.no_search else 'on'}", file=sys.stderr)
+        sandbox_mode = "full-auto" if args.full_auto else "danger-full-access"
+        print(f"   Sandbox: {sandbox_mode}", file=sys.stderr)
         print(f"   PID: {os.getpid()}", file=sys.stderr)
         print(f"   Completion mode: {args.completion_mode}", file=sys.stderr)
         print(f"   Max iterations: {iter_budget}", file=sys.stderr)
@@ -976,7 +986,7 @@ def main():
         trace_live(token, args.session, args.trace_live, "[RUN_TASK][START]",
                    f"project={project} mode={args.completion_mode} limit={iter_budget} run_id={run_id}", thread_id, reply_to_msg_id)
         if _tgt and token:
-            launch_parts = [f"🚀 *Claude Code started*"]
+            launch_parts = [f"🚀 *OpenAI Codex started*"]
             if args.session_label:
                 launch_parts.append(f"*Label:* {args.session_label}")
             launch_parts.append(f"*Project:* {project}")
@@ -984,12 +994,14 @@ def main():
             launch_parts.append(f"*Mode:* {args.completion_mode}")
             launch_parts.append(f"*Iteration limit:* {iter_budget}")
             launch_parts.append(f"*Resume:* {resume_display}")
+            launch_parts.append(f"*Search:* {'off' if args.no_search else 'on'}")
+            launch_parts.append(f"*Sandbox:* {sandbox_mode}")
             launch_parts.append(f"*PID:* {os.getpid()}")
             # Build launch message: use HTML + expandable blockquote for prompt
             def _esc(s: str) -> str:
                 return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
-            html_parts = ["🚀 <b>Claude Code started</b>"]
+            html_parts = ["🚀 <b>OpenAI Codex started</b>"]
             if args.session_label:
                 html_parts.append(f"<b>Label:</b> {_esc(args.session_label)}")
             html_parts.append(f"<b>Project:</b> {_esc(str(project))}")
@@ -997,6 +1009,8 @@ def main():
             html_parts.append(f"<b>Mode:</b> {_esc(args.completion_mode)}")
             html_parts.append(f"<b>Iteration limit:</b> {_esc(str(iter_budget))}")
             html_parts.append(f"<b>Resume:</b> {_esc(resume_display)}")
+            html_parts.append(f"<b>Search:</b> {_esc('off' if args.no_search else 'on')}")
+            html_parts.append(f"<b>Sandbox:</b> {_esc(sandbox_mode)}")
             html_parts.append(f"<b>PID:</b> {os.getpid()}")
             prompt_preview = args.task[:3500] + ("…" if len(args.task) > 3500 else "")
             html_parts.append(f"<b>Prompt:</b>\n<blockquote expandable>{_esc(prompt_preview)}</blockquote>")
@@ -1016,15 +1030,14 @@ def main():
                 send_channel(token, args.session or "", "\n".join(launch_parts),
                              silent=True, thread_id=thread_id, reply_to=reply_to_msg_id)
 
-        # Build claude command
-        # Create a progress notification script on disk so Claude Code can send
-        # mid-task updates without seeing the bot token in the prompt (which triggers
-        # prompt-injection warnings in Claude Code's safety checks).
+        # Build Codex command
+        # Create a progress notification script on disk so Codex can send
+        # mid-task updates without seeing the bot token in the prompt.
         notify_script_path = None
         if thread_id and _ch == "telegram" and _tgt:
             bot_token_for_script = get_telegram_bot_token()
             if bot_token_for_script:
-                notify_script_path = f"/tmp/cc-notify-{os.getpid()}.py"
+                notify_script_path = f"/tmp/codex-notify-{os.getpid()}.py"
                 with open(notify_script_path, "w") as _nf:
                     _nf.write(
                         "#!/usr/bin/env python3\n"
@@ -1032,7 +1045,7 @@ def main():
                         "try:\n"
                         "    import urllib.request\n"
                         f"    raw = sys.argv[1] if len(sys.argv) > 1 else 'Progress update'\n"
-                        f"    prefix = '📡 🟢 CC: '\n"
+                        f"    prefix = '📡 🟢 Codex: '\n"
                         f"    msg = raw if raw.startswith(prefix) else (prefix + raw)\n"
                         f"    payload = json.dumps({{'chat_id': '{_tgt}', 'text': msg, "
                         f"'message_thread_id': {thread_id}, 'disable_notification': True}}).encode()\n"
@@ -1056,18 +1069,30 @@ def main():
                 + args.task
             )
 
-        claude_cmd = ["claude", "-p", task_prompt, "--dangerously-skip-permissions",
-                      "--verbose", "--output-format", "stream-json",
-                      "--include-partial-messages"]
+        codex_cmd = ["codex"]
+        if args.model:
+            codex_cmd.extend(["--model", args.model])
+        if not args.no_search:
+            codex_cmd.append("--search")
+        codex_cmd.append("exec")
+        codex_cmd.extend([
+            "--experimental-json",
+            "--output-last-message", output_file,
+            "-C", str(project),
+        ])
+        if args.full_auto:
+            codex_cmd.append("--full-auto")
+        else:
+            codex_cmd.append("--dangerously-bypass-approvals-and-sandbox")
 
-        # Add resume flag if provided
         if args.resume:
-            claude_cmd.extend(["--resume", args.resume])
+            codex_cmd.extend(["resume", args.resume, task_prompt])
+        else:
+            codex_cmd.append(task_prompt)
 
-        # Start Claude Code
+        # Start Codex CLI
         proc = subprocess.Popen(
-            claude_cmd,
-            cwd=str(project),
+            codex_cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
@@ -1078,11 +1103,12 @@ def main():
             "tool_calls": 0,
             "files_written": [],
             "last_activity": "",
-            "session_id": None,  # Will be captured from stream-json init event
+            "session_id": None,
             "last_event_time": time.time(),
             "output_tokens": 0,
-            "chunks_since_heartbeat": 0,
-            "active_subagent_ids": set(),
+            "events_since_heartbeat": 0,
+            "active_item_ids": set(),
+            "last_message": "",
         }
 
         start = time.time()
@@ -1128,23 +1154,24 @@ def main():
                 else:
                     status = "🔴"
 
-                parts = [f"{status} CC ({mins}min)"]
-                parts.append(f"sub:{len(state['active_subagent_ids'])}")
+                parts = [f"{status} Codex ({mins}min)"]
+                if state["active_item_ids"]:
+                    parts.append(f"ops:{len(state['active_item_ids'])}")
                 if state["output_tokens"] > 0:
                     parts.append(f"{format_tokens(state['output_tokens'])} tok")
                 if state["tool_calls"] > 0:
                     parts.append(f"{state['tool_calls']} calls")
                 if idle_secs > 120:
                     parts.append(f"🧠 Thinking... ({int(idle_secs)}s)")
-                elif idle_secs > 15 and state["chunks_since_heartbeat"] == 0:
+                elif idle_secs > 15 and state["events_since_heartbeat"] == 0:
                     parts.append(f"🧠 Thinking...")
                 elif state["last_activity"]:
                     activity = state["last_activity"]
-                    if state["chunks_since_heartbeat"] > 0:
+                    if state["events_since_heartbeat"] > 0:
                         activity += " ✍️"
                     parts.append(activity)
 
-                state["chunks_since_heartbeat"] = 0
+                state["events_since_heartbeat"] = 0
                 send_channel(token, args.session or "", " | ".join(parts), silent=True, thread_id=thread_id, reply_to=reply_to_msg_id)
 
         read_thread.join(timeout=5)
@@ -1154,12 +1181,13 @@ def main():
         except Exception:
             pass
 
-        # Check for resume failure
-        if args.resume and stderr_output and "No conversation found" in stderr_output:
+        # Check for obvious resume failure
+        resume_failed = bool(args.resume and re.search(r"(not found|unable to resume|unknown session|invalid session)", stderr_output, re.IGNORECASE))
+        if resume_failed:
             print(f"❌ Resume failed: session {args.resume} not found", file=sys.stderr)
             if args.session and token and group_jid:
                 notify_session(token, args.session, group_jid,
-                    f"❌ Claude Code resume failed\n\n"
+                    f"❌ Codex resume failed\n\n"
                     f"Session ID `{args.resume}` not found or expired.\n\n"
                     f"**Suggestion:** Start a fresh session without --resume flag.",
                     thread_id=thread_id, notify_session_id=notify_session_id, reply_to=reply_to_msg_id, completion_mode=args.completion_mode,
@@ -1168,34 +1196,14 @@ def main():
                 print("📨 Resume failure notified", file=sys.stderr)
             return  # Exit early, don't process output
 
-        # Extract final text from stream-json
-        final_text = ""
-        for line in output_lines:
-            try:
-                data = json.loads(line)
-                if data.get("type") == "result":
-                    final_text = data.get("result", "")
-                    break
-            except (json.JSONDecodeError, KeyError):
-                pass
-
-        if not final_text:
-            for line in output_lines:
-                try:
-                    data = json.loads(line)
-                    if data.get("type") == "assistant":
-                        for block in data.get("message", {}).get("content", []):
-                            if block.get("type") == "text":
-                                final_text += block.get("text", "") + "\n"
-                except (json.JSONDecodeError, KeyError):
-                    pass
-
-        if not final_text:
-            final_text = stderr_output or "(no output captured)"
-
-        # Save output
-        output = final_text
-        Path(output_file).write_text(output)
+        output = ""
+        try:
+            output = Path(output_file).read_text()
+        except Exception:
+            pass
+        if not output:
+            output = state.get("last_message", "") or stderr_output or "(no output captured)"
+            Path(output_file).write_text(output)
 
         exit_code = proc.returncode if proc.returncode is not None else -1
         output_size = len(output)
@@ -1209,15 +1217,26 @@ def main():
         if state.get("session_id"):
             try:
                 session_status = "timeout" if timed_out else ("completed" if exit_code == 0 else "failed")
-                register_session(
-                    session_id=state["session_id"],
-                    label=args.session_label,
-                    task=args.task,
-                    project_dir=str(project),
-                    openclaw_session=args.session,
-                    output_file=output_file,
-                    status=session_status
-                )
+                update_fields = {
+                    "task_summary": args.task[:200],
+                    "project_dir": str(project),
+                    "openclaw_session": args.session,
+                    "output_file": output_file,
+                    "status": session_status,
+                }
+                if args.session_label:
+                    update_fields["label"] = args.session_label
+                updated = update_session(state["session_id"], **update_fields)
+                if not updated:
+                    register_session(
+                        session_id=state["session_id"],
+                        label=args.session_label,
+                        task=args.task,
+                        project_dir=str(project),
+                        openclaw_session=args.session,
+                        output_file=output_file,
+                        status=session_status
+                    )
                 print(f"📝 Session registered: {state['session_id']}", file=sys.stderr)
             except Exception as e:
                 print(f"⚠️  Failed to register session: {e}", file=sys.stderr)
@@ -1232,7 +1251,7 @@ def main():
             if timed_out:
                 elapsed = fmt_duration(int(time.time() - start))
                 msg = (
-                    f"⏰ Claude Code timed out after {elapsed} "
+                    f"⏰ OpenAI Codex timed out after {elapsed} "
                     f"(limit: {fmt_duration(args.timeout)})\n\n"
                     f"Task: {args.task[:200]}\n"
                     f"Project: {project}\n"
@@ -1241,7 +1260,7 @@ def main():
                     f"Full output: {output_file}"
                 )
                 html_msg = (
-                    f"⏰ <b>Claude Code timed out</b> after {_e(elapsed)} "
+                    f"⏰ <b>OpenAI Codex timed out</b> after {_e(elapsed)} "
                     f"(limit: {_e(fmt_duration(args.timeout))})\n\n"
                     f"<b>Task:</b> {_e(args.task[:200])}\n"
                     f"<b>Project:</b> {_e(str(project))}\n"
@@ -1253,14 +1272,14 @@ def main():
             elif exit_code == 0:
                 trunc = "...(truncated)" if output_size > 2000 else ""
                 msg = (
-                    f"✅ Claude Code task complete!\n\n"
+                    f"✅ OpenAI Codex task complete!\n\n"
                     f"Task: {args.task[:200]}\n"
                     f"Project: {project}\n"
                     f"Result ({output_size} chars):\n\n{preview}\n{trunc}\n"
                     f"Full output: {output_file}"
                 )
                 html_msg = (
-                    f"✅ <b>Claude Code task complete!</b>\n\n"
+                    f"✅ <b>OpenAI Codex task complete!</b>\n\n"
                     f"<b>Task:</b> {_e(args.task[:200])}\n"
                     f"<b>Project:</b> {_e(str(project))}\n"
                     f"<b>Result</b> ({output_size} chars):\n"
@@ -1270,12 +1289,12 @@ def main():
                 )
             else:
                 msg = (
-                    f"❌ Claude Code error (exit {exit_code})\n\n"
+                    f"❌ OpenAI Codex error (exit {exit_code})\n\n"
                     f"Task: {args.task[:200]}\n"
                     f"Project: {project}\n\n{preview}"
                 )
                 html_msg = (
-                    f"❌ <b>Claude Code error</b> (exit {exit_code})\n\n"
+                    f"❌ <b>OpenAI Codex error</b> (exit {exit_code})\n\n"
                     f"<b>Task:</b> {_e(args.task[:200])}\n"
                     f"<b>Project:</b> {_e(str(project))}\n\n"
                     f"<blockquote expandable>{_e(preview)}</blockquote>"
@@ -1300,7 +1319,7 @@ def main():
         if args.session and token:
             try:
                 notify_session(token, args.session, group_jid,
-                    f"💥 Claude Code script crashed!\n\n"
+                    f"💥 OpenAI Codex runner crashed!\n\n"
                     f"**Task:** {args.task[:200]}\n"
                     f"**Error:** {str(e)[:500]}",
                     thread_id=thread_id, notify_session_id=notify_session_id, reply_to=reply_to_msg_id, completion_mode=args.completion_mode,
@@ -1312,7 +1331,7 @@ def main():
         # Fallback: direct channel notification
         _fb_ch, _fb_tgt = detect_channel(args.session or "")
         if _fb_tgt and token and not args.session:
-            send_channel(token, args.session or "", f"💥 Claude Code crash: {str(e)[:200]}", thread_id=thread_id, reply_to=reply_to_msg_id)
+            send_channel(token, args.session or "", f"💥 OpenAI Codex crash: {str(e)[:200]}", thread_id=thread_id, reply_to=reply_to_msg_id)
 
     finally:
         # Cleanup PID file
