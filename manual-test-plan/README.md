@@ -37,7 +37,7 @@ Replace these placeholders during testing:
 
 - `<BASE_DIR>`: absolute path to this repo or installed skill directory
 - `<WA_GROUP_SESSION>`: `agent:...:whatsapp:group:...`
-- `<TG_THREAD_SESSION>`: `agent:...:main:thread:<id>`
+- `<TG_THREAD_SESSION>`: `agent:...:main:<thread|topic>:<id>`
 - `<TG_THREAD_UUID>`: OpenClaw session UUID for that Telegram thread
 - `<PROJECT_DIR>`: temporary or real project directory
 - `<MODEL>`: optional Codex model name

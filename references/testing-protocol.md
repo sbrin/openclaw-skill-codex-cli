@@ -87,13 +87,13 @@ EOF
 python3 {baseDir}/run-task.py \
   --task "$(cat /tmp/codex-full-test-prompt.txt)" \
   --project /tmp/codex-e2e-project \
-  --session "agent:main:main:thread:<THREAD_ID>" \
+  --session "agent:main:main:<thread|topic>:<THREAD_ID>" \
   --validate-only
 
 nohup python3 {baseDir}/run-task.py \
   --task "$(cat /tmp/codex-full-test-prompt.txt)" \
   --project /tmp/codex-e2e-project \
-  --session "agent:main:main:thread:<THREAD_ID>" \
+  --session "agent:main:main:<thread|topic>:<THREAD_ID>" \
   --timeout 900 \
   > /tmp/codex-full-test.log 2>&1 &
 ```

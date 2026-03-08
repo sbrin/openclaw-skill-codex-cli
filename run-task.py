@@ -90,12 +90,12 @@ def extract_group_jid(session_key: str) -> Optional[str]:
 
 
 def extract_thread_id(session_key: str) -> Optional[str]:
-    """Extract Telegram thread ID from session key (e.g. agent:main:main:thread:369520)."""
+    """Extract Telegram thread ID from session key (e.g. agent:main:main:thread:369520 or :topic:369520)."""
     if not session_key:
         return None
     parts = session_key.split(":")
     for i, part in enumerate(parts):
-        if part == "thread" and i + 1 < len(parts):
+        if part in ("thread", "topic") and i + 1 < len(parts):
             return parts[i + 1]
     return None
 
@@ -200,7 +200,7 @@ def has_recent_thread_session(token: str, telegram_target: str, max_age_hours: i
         max_age_ms = max_age_hours * 3600 * 1000
         for s in payload.get("sessions", []):
             key = s.get("key", "")
-            if ":thread:" not in key:
+            if ":thread:" not in key and ":topic:" not in key:
                 continue
             dc = s.get("deliveryContext", {}) or {}
             to = dc.get("to", "")
@@ -797,7 +797,7 @@ def main():
     parser.add_argument("--notify-session-id", help="OpenClaw session UUID for precise agent wake in threads")
     parser.add_argument("--reply-to-message-id", help="Telegram message ID to reply to (for DM thread routing)")
     parser.add_argument("--validate-only", action="store_true", help="Resolve routing and exit (no Codex run)")
-    parser.add_argument("--allow-main-telegram", action="store_true", help="Allow Telegram launch without :thread: session (for non-thread Telegram setups)")
+    parser.add_argument("--allow-main-telegram", action="store_true", help="Allow Telegram launch without :thread:/:topic: session (for non-thread Telegram setups)")
     parser.add_argument("--telegram-routing-mode", choices=["auto", "thread-only", "allow-non-thread"], default="auto", help="Telegram routing policy (default: auto)")
     parser.add_argument("--completion-mode", choices=["single", "iterate"], default="single",
                         help="(Optional, legacy) Post-completion hint: single (default) or iterate")
@@ -900,8 +900,8 @@ def main():
             tg_target = args.session.split(":")[-1]
 
         if args.telegram_routing_mode == "thread-only":
-            print("❌ Unsafe routing blocked: Telegram launch requires thread session (:thread:<id>)", file=sys.stderr)
-            print("   Use --session agent:main:main:thread:<id>", file=sys.stderr)
+            print("❌ Unsafe routing blocked: Telegram launch requires thread session (:thread:<id> or :topic:<id>)", file=sys.stderr)
+            print("   Use --session agent:main:main:<thread|topic>:<id>", file=sys.stderr)
             sys.exit(2)
 
         if args.telegram_routing_mode == "allow-non-thread":
@@ -910,7 +910,7 @@ def main():
             # auto mode guard #1: synthesized/ambiguous user-scope key must be explicit
             if user_scope_key and not args.allow_main_telegram:
                 print("❌ Unsafe routing blocked: session key is non-thread user scope (agent:main:telegram:user:...).", file=sys.stderr)
-                print("   For thread chats use --session agent:main:main:thread:<id>.", file=sys.stderr)
+                print("   For thread chats use --session agent:main:main:<thread|topic>:<id>.", file=sys.stderr)
                 print("   For intentional non-thread Telegram, pass --allow-main-telegram or --telegram-routing-mode allow-non-thread.", file=sys.stderr)
                 sys.exit(2)
 
@@ -918,7 +918,7 @@ def main():
             if tg_target and has_recent_thread_session(token, str(tg_target), max_age_hours=24):
                 if not args.allow_main_telegram:
                     print("❌ Unsafe routing blocked: recent thread session detected for this Telegram target.", file=sys.stderr)
-                    print("   Use thread session key (:thread:<id>) or pass --allow-main-telegram to force non-thread.", file=sys.stderr)
+                    print("   Use thread session key (:thread:<id> or :topic:<id>) or pass --allow-main-telegram to force non-thread.", file=sys.stderr)
                     sys.exit(2)
 
     # Deterministic Telegram target resolution: no manual --notify-target allowed.

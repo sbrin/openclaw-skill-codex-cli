@@ -122,12 +122,12 @@ For Telegram thread runs, `run-task.py` is designed to either route correctly or
 Resolve the **current runtime session key** first, then launch with it.
 
 - Get current key via `sessions_list` or runtime context
-- If key is `agent:main:main:thread:<THREAD_ID>` → use it directly in `--session`
+- If key is `agent:main:main:<thread|topic>:<THREAD_ID>` → use it directly in `--session`
 - Never derive `--session` from `chat_id` / sender heuristics
 
 ### Rules
 
-- Use only `--session "agent:main:main:thread:<THREAD_ID>"` for thread tasks
+- Use only `--session "agent:main:main:<thread|topic>:<THREAD_ID>"` for thread tasks
 - Never use `agent:main:telegram:user:<id>` for thread tasks
 - If routing metadata is inconsistent, script exits with `❌ Invalid routing`
 - Default mode is `--telegram-routing-mode auto`
@@ -161,7 +161,7 @@ nohup python3 {baseDir}/run-task.py \
 nohup python3 {baseDir}/run-task.py \
   --task "$(cat /tmp/codex-prompt.txt)" \
   --project ~/projects/my-project \
-  --session "agent:main:main:thread:<THREAD_ID>" \
+  --session "agent:main:main:<thread|topic>:<THREAD_ID>" \
   --timeout 900 \
   > /tmp/codex-run.log 2>&1 &
 ```
@@ -170,10 +170,10 @@ nohup python3 {baseDir}/run-task.py \
 
 ### Telegram Threaded Mode (1:1 DM with threads)
 
-When OpenClaw is used in Telegram threaded mode, each thread has its own session key like `agent:main:main:thread:369520`.
+When OpenClaw is used in Telegram threaded mode, each thread has its own session key like `agent:main:main:thread:369520` or `agent:main:main:topic:369520`.
 
 **Fail-safe routing (NEW):** `run-task.py` now enforces strict thread routing.
-- If `--session` contains `:thread:<id>`, the script **refuses to start** unless Telegram target + thread session UUID are resolved.
+- If `--session` contains `:thread:<id>` or `:topic:<id>`, the script **refuses to start** unless Telegram target + thread session UUID are resolved.
 - It auto-resolves missing values from `sessions_list` when possible.
 - If the session is inactive and not returned by API, it falls back to local session files: `~/.openclaw/agents/main/sessions/*-topic-<thread_id>.jsonl`.
 - If provided `--notify-session-id` mismatches the session key, it exits with error.
@@ -185,12 +185,12 @@ Use `--notify-session-id` to wake the exact thread session:
 nohup python3 {baseDir}/run-task.py \
   --task "$(cat /tmp/codex-prompt.txt)" \
   --project ~/projects/my-project \
-  --session "agent:main:main:thread:369520" \
+  --session "agent:main:main:<thread|topic>:369520" \
   --timeout 900 \
   > /tmp/codex-run.log 2>&1 &
 ```
 
-All 5 notification types route to the DM thread when `--session` key contains `:thread:<id>` ✅
+All 5 notification types route to the DM thread when `--session` key contains `:thread:<id>` or `:topic:<id>` ✅
 
 - `--notify-session-id` — optional override. Usually auto-resolved from session metadata/files.
 - `--notify-thread-id` — optional override. Usually auto-extracted from `--session`.
@@ -314,7 +314,7 @@ Telegram has two distinct thread models. The key difference for `run-task.py` is
 
 **DM Threaded Mode** (bot-user private chat with threads):
 - All notifications use `send_telegram_direct(chat_id, text, thread_id=..., parse_mode=...)` ✅
-- `thread_id` auto-extracted from session key `*:thread:<id>` by `extract_thread_id()`
+- `thread_id` auto-extracted from session key `*:thread:<id>` or `*:topic:<id>` by `extract_thread_id()`
 - Launch + finish: `parse_mode="HTML"` with `<blockquote expandable>` for prompt/result
 - Heartbeats + mid-task: `parse_mode=None` (plain text, avoid Markdown parse errors)
 - **`parse_mode="Markdown"` trap**: finish messages contain `**text**` (CommonMark bold); Telegram MarkdownV1 rejects this with HTTP 400 — messages silently don't arrive
@@ -323,7 +323,7 @@ Telegram has two distinct thread models. The key difference for `run-task.py` is
 
 **Forum Groups** (supergroup with Forum topics enabled):
 - Same `send_telegram_direct()` approach works; `message_thread_id` is standard Bot API for Forum topics
-- Auto-detected from session key pattern `*:thread:<id>`
+- Auto-detected from session key pattern `*:thread:<id>` or `*:topic:<id>`
 
 **Codex mid-task updates:**
 - Do NOT embed bot tokens or curl commands in the task prompt
@@ -460,13 +460,13 @@ EOF
 python3 {baseDir}/run-task.py \
   --task "$(cat /tmp/codex-full-test-prompt.txt)" \
   --project /tmp/codex-e2e-project \
-  --session "agent:main:main:thread:<THREAD_ID>" \
+  --session "agent:main:main:<thread|topic>:<THREAD_ID>" \
   --validate-only
 
 nohup python3 {baseDir}/run-task.py \
   --task "$(cat /tmp/codex-full-test-prompt.txt)" \
   --project /tmp/codex-e2e-project \
-  --session "agent:main:main:thread:<THREAD_ID>" \
+  --session "agent:main:main:<thread|topic>:<THREAD_ID>" \
   --timeout 900 \
   > /tmp/codex-full-test.log 2>&1 &
 ```
@@ -504,13 +504,13 @@ EOF
 python3 {baseDir}/run-task.py \
   --task "$(cat /tmp/codex-full-test-prompt.txt)" \
   --project /tmp/codex-e2e-project \
-  --session "agent:main:main:thread:<THREAD_ID>" \
+  --session "agent:main:main:<thread|topic>:<THREAD_ID>" \
   --validate-only
 
 nohup python3 {baseDir}/run-task.py \
   --task "$(cat /tmp/codex-full-test-prompt.txt)" \
   --project /tmp/codex-e2e-project \
-  --session "agent:main:main:thread:<THREAD_ID>" \
+  --session "agent:main:main:<thread|topic>:<THREAD_ID>" \
   --timeout 900 \
   > /tmp/codex-full-test.log 2>&1 &
 ```
@@ -533,7 +533,7 @@ nohup python3 {baseDir}/run-task.py \
 nohup python3 {baseDir}/run-task.py \
   --task "$(cat /tmp/codex-prompt.txt)" \
   --project ~/projects/my-project \
-  --session "agent:main:main:thread:<THREAD_ID>" \
+  --session "agent:main:main:<thread|topic>:<THREAD_ID>" \
   --timeout 1800 \
   > /tmp/codex-run.log 2>&1 &
 ```
@@ -555,7 +555,7 @@ EOF
 nohup python3 {baseDir}/run-task.py \
   --task "$(cat /tmp/codex-prompt.txt)" \
   --project ~/projects/my-project \
-  --session "agent:main:main:thread:<THREAD_ID>" \
+  --session "agent:main:main:<thread|topic>:<THREAD_ID>" \
   --timeout 1800 \
   > /tmp/codex-run.log 2>&1 &
 ```
@@ -567,13 +567,13 @@ nohup python3 {baseDir}/run-task.py \
 > python3 {baseDir}/run-task.py \
 >   --task "probe" \
 >   --project ~/projects/x \
->   --session "agent:main:main:thread:<THREAD_ID>" \
+>   --session "agent:main:main:<thread|topic>:<THREAD_ID>" \
 >   --validate-only
 >
 > nohup python3 {baseDir}/run-task.py \
 >   --task "$(cat /tmp/prompt.txt)" \
 >   --project ~/projects/x \
->   --session "agent:main:main:thread:<THREAD_ID>" \
+>   --session "agent:main:main:<thread|topic>:<THREAD_ID>" \
 >   --timeout 900 \
 >   > /tmp/codex-run.log 2>&1 &
 > ```
@@ -691,7 +691,7 @@ write /tmp/research-prompt.txt with "Research the codebase architecture for proj
 nohup python3 {baseDir}/run-task.py \
   --task "$(cat /tmp/research-prompt.txt)" \
   --project ~/projects/project-x \
-  --session "agent:main:main:thread:<THREAD_ID>" \
+  --session "agent:main:main:<thread|topic>:<THREAD_ID>" \
   --session-label "Project X architecture research" \
   > /tmp/codex-run.log 2>&1 &
 ```

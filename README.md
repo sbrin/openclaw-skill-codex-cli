@@ -263,6 +263,7 @@ Telegram thread example:
 
 ```text
 agent:main:main:thread:369520
+agent:main:main:topic:369520
 ```
 
 Find your session key in OpenClaw logs or by running the relevant sessions command/tooling.

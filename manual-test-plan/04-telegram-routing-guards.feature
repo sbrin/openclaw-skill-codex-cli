@@ -27,6 +27,6 @@ Feature: Telegram routing guards
     Then the script should allow launch validation to continue
 
   Scenario: Enforce thread-only mode
-    Given I use a Telegram launch without ":thread:<id>"
+    Given I use a Telegram launch without ":thread:<id>" or ":topic:<id>"
     When I run "run-task.py" with "--telegram-routing-mode thread-only"
     Then the launch should be rejected before Codex starts
