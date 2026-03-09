@@ -6,8 +6,8 @@ Stores metadata about completed/running sessions for resumption and tracking.
 Registry format: ~/.openclaw/codex_sessions.json
 {
   "sessions": {
-    "<session-id>": {
-      "session_id": "...",
+    "<thread-id>": {
+      "thread_id": "...",
       "label": "Research on topic X",
       "task_summary": "first 200 chars of task...",
       "project_dir": "/absolute/path",
@@ -32,6 +32,31 @@ from typing import Optional, Dict, List
 REGISTRY_FILE = Path.home() / ".openclaw" / "codex_sessions.json"
 
 
+def _normalize_entry(entry: Dict) -> Dict:
+    """Upgrade legacy registry entries to the current thread_id schema."""
+    if "thread_id" not in entry and "session_id" in entry:
+        entry["thread_id"] = entry.pop("session_id")
+    return entry
+
+
+def _normalize_registry(data: Dict) -> tuple[Dict, bool]:
+    sessions = data.get("sessions") or {}
+    normalized = {}
+    changed = False
+
+    for key, entry in sessions.items():
+        original = dict(entry)
+        entry = _normalize_entry(dict(entry))
+        entry_key = entry.get("thread_id") or key
+        normalized[entry_key] = entry
+        if entry != original or entry_key != key:
+            changed = True
+
+    if changed:
+        data["sessions"] = normalized
+    return data, changed
+
+
 def _ensure_registry() -> Dict:
     """Ensure registry file exists and return its contents."""
     if not REGISTRY_FILE.exists():
@@ -42,7 +67,11 @@ def _ensure_registry() -> Dict:
         return data
 
     try:
-        return json.loads(REGISTRY_FILE.read_text())
+        data = json.loads(REGISTRY_FILE.read_text())
+        data, changed = _normalize_registry(data)
+        if changed:
+            _save_registry(data)
+        return data
     except (json.JSONDecodeError, KeyError):
         # Corrupted registry, reset it
         data = {"sessions": {}}
@@ -58,7 +87,7 @@ def _save_registry(data: Dict):
 
 
 def register_session(
-    session_id: str,
+    thread_id: str,
     label: Optional[str],
     task: str,
     project_dir: str,
@@ -70,7 +99,7 @@ def register_session(
     Register a new session in the registry.
 
     Args:
-        session_id: Codex session ID
+        thread_id: Codex thread ID used for resume
         label: Human-readable label for the session
         task: Full task description (will be truncated to 200 chars)
         project_dir: Absolute path to project directory
@@ -85,7 +114,7 @@ def register_session(
 
     now = datetime.now().isoformat()
     entry = {
-        "session_id": session_id,
+        "thread_id": thread_id,
         "label": label,
         "task_summary": task[:200],
         "project_dir": str(Path(project_dir).absolute()),
@@ -97,25 +126,25 @@ def register_session(
         "cost_estimate": None
     }
 
-    data["sessions"][session_id] = entry
+    data["sessions"][thread_id] = entry
     _save_registry(data)
     return entry
 
 
-def get_session(session_id: str) -> Optional[Dict]:
+def get_session(thread_id: str) -> Optional[Dict]:
     """
-    Get session entry by ID.
+    Get session entry by thread_id.
 
     Returns:
         Session entry dict or None if not found
     """
     data = _ensure_registry()
-    entry = data["sessions"].get(session_id)
+    entry = data["sessions"].get(thread_id)
 
     if entry:
         # Update last_accessed
         entry["last_accessed"] = datetime.now().isoformat()
-        data["sessions"][session_id] = entry
+        data["sessions"][thread_id] = entry
         _save_registry(data)
 
     return entry
@@ -135,7 +164,7 @@ def list_recent_sessions(hours: int = 72) -> List[Dict]:
     cutoff = datetime.now() - timedelta(hours=hours)
 
     recent = []
-    for session_id, entry in data["sessions"].items():
+    for thread_id, entry in data["sessions"].items():
         try:
             last_access = datetime.fromisoformat(entry["last_accessed"])
             if last_access >= cutoff:
@@ -162,13 +191,13 @@ def find_session_by_label(label: str) -> Optional[Dict]:
     label_lower = label.lower()
 
     # First try exact match
-    for session_id, entry in data["sessions"].items():
+    for thread_id, entry in data["sessions"].items():
         entry_label = (entry.get("label") or "")
         if entry_label.lower() == label_lower:
             return entry
 
     # Then try substring match
-    for session_id, entry in data["sessions"].items():
+    for thread_id, entry in data["sessions"].items():
         entry_label = (entry.get("label") or "")
         if label_lower in entry_label.lower():
             return entry
@@ -176,12 +205,12 @@ def find_session_by_label(label: str) -> Optional[Dict]:
     return None
 
 
-def update_session(session_id: str, **kwargs) -> bool:
+def update_session(thread_id: str, **kwargs) -> bool:
     """
     Update session entry fields.
 
     Args:
-        session_id: Session ID to update
+        thread_id: Thread ID to update
         **kwargs: Fields to update (status, label, output_file, etc.)
 
     Returns:
@@ -189,10 +218,10 @@ def update_session(session_id: str, **kwargs) -> bool:
     """
     data = _ensure_registry()
 
-    if session_id not in data["sessions"]:
+    if thread_id not in data["sessions"]:
         return False
 
-    entry = data["sessions"][session_id]
+    entry = data["sessions"][thread_id]
     entry["last_accessed"] = datetime.now().isoformat()
 
     # Update provided fields
@@ -200,7 +229,7 @@ def update_session(session_id: str, **kwargs) -> bool:
         if key in entry:
             entry[key] = value
 
-    data["sessions"][session_id] = entry
+    data["sessions"][thread_id] = entry
     _save_registry(data)
     return True
 
@@ -219,17 +248,17 @@ def cleanup_old_sessions(days: int = 30) -> int:
     cutoff = datetime.now() - timedelta(days=days)
 
     to_remove = []
-    for session_id, entry in data["sessions"].items():
+    for thread_id, entry in data["sessions"].items():
         try:
             last_access = datetime.fromisoformat(entry["last_accessed"])
             if last_access < cutoff:
-                to_remove.append(session_id)
+                to_remove.append(thread_id)
         except (ValueError, KeyError):
             # Invalid timestamp, remove it
-            to_remove.append(session_id)
+            to_remove.append(thread_id)
 
-    for session_id in to_remove:
-        del data["sessions"][session_id]
+    for thread_id in to_remove:
+        del data["sessions"][thread_id]
 
     if to_remove:
         _save_registry(data)

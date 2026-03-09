@@ -145,7 +145,7 @@ The skill writes to these locations:
 | `<skill-dir>/pids/<timestamp>.pid` | PID file for the running task | Default umask |
 | `/tmp/codex-<timestamp>.txt` | Final output file from Codex | Default umask |
 
-**Session registry (`codex_sessions.json`):** Stores task labels, project directories, session IDs, output file paths, and completion status. Used to resume previous Codex sessions. Auto-created if missing. Permissions set to `0o600` on every write.
+**Session registry (`codex_sessions.json`):** Stores task labels, project directories, Codex `thread_id` values, output file paths, and completion status. Used to resume previous Codex sessions. Auto-created if missing. Permissions set to `0o600` on every write.
 
 **PID files (`pids/`):** One file per running task, containing the process PID, task description, and start timestamp. Automatically deleted when the task completes or exits. Stale PID files are cleaned up on next task launch.
 
@@ -348,7 +348,7 @@ nohup python3 ~/.openclaw/workspace/skills/codex-cli-task/run-task.py \
 Pick up where a previous task left off — full conversation context is preserved:
 
 ```bash
-# Step 1: Run initial task (note the session ID from logs)
+# Step 1: Run initial task (note the Codex thread_id from logs)
 nohup python3 ~/.openclaw/workspace/skills/codex-cli-task/run-task.py \
   --task "$(cat /tmp/research-prompt.txt)" \
   --project ~/projects/myapp \
@@ -356,7 +356,7 @@ nohup python3 ~/.openclaw/workspace/skills/codex-cli-task/run-task.py \
   --session-label "Architecture research" \
   > /tmp/codex-run.log 2>&1 &
 
-# Step 2: Find the session ID when it completes
+# Step 2: Find the thread_id when it completes
 tail /tmp/codex-run.log
 # → 📝 Session registered: 019cccab-3676-7860-8353-aaa69ba734f7
 
@@ -419,7 +419,7 @@ Every completed task is saved to `~/.openclaw/codex_sessions.json`:
 {
   "sessions": {
     "019cccab-3676-7860-8353-aaa69ba734f7": {
-      "session_id": "019cccab-3676-7860-8353-aaa69ba734f7",
+      "thread_id": "019cccab-3676-7860-8353-aaa69ba734f7",
       "label": "Architecture research",
       "task_summary": "Research the codebase architecture...",
       "project_dir": "/home/user/projects/myapp",
@@ -440,11 +440,11 @@ from session_registry import list_recent_sessions, find_session_by_label
 
 # All sessions from last 72 hours
 for s in list_recent_sessions(hours=72):
-    print(f"{s['session_id']}: {s['label']} ({s['status']})")
+    print(f"{s['thread_id']}: {s['label']} ({s['status']})")
 
 # Find by label (fuzzy match)
 session = find_session_by_label("Architecture")
-print(session['session_id'])
+print(session['thread_id'])
 ```
 
 ---
@@ -502,10 +502,10 @@ tail -50 /tmp/codex-run.log
 
 ### Resume failed
 
-If you get "Session ID not found or expired":
+If you get "thread_id not found or expired":
 
 - Codex may no longer be able to resume that session
-- Try finding the correct session ID: `cat ~/.openclaw/codex_sessions.json`
+- Try finding the correct thread_id: `cat ~/.openclaw/codex_sessions.json`
 - If the session is no longer resumable, start fresh without `--resume`
 
 ### "No such file or directory: codex" when launched from cron

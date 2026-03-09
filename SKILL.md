@@ -284,7 +284,7 @@ In `iterate` mode:
 - Only after that visible decision may the next Codex iteration be launched.
 
 ### Telegram notification flow (DM Threaded Mode — full pipeline)
-1. 🚀 **Launch notification** → thread ✅ (silent; HTML; `<blockquote expandable>` for prompt; via `send_telegram_direct`; includes `Resume: <session-id|new>`)
+1. 🚀 **Launch notification** → thread ✅ (silent; HTML; `<blockquote expandable>` for prompt; via `send_telegram_direct`; includes `Resume: <thread-id|new>`)
 2. ⏳ **Heartbeat** (every 60s) → thread ✅ (silent; plain text; via `send_telegram_direct`)
 3. 📡 **Codex mid-task updates** → thread ✅ (on-disk Python script `/tmp/codex-notify-{pid}.py`; Codex calls file; prefix `"📡 🟢 Codex: "` auto-added)
 4. ✅/❌/⏰/💥 **Result notification** → thread ✅ (HTML; `<blockquote expandable>` for result; via `send_telegram_direct`)
@@ -376,7 +376,7 @@ WhatsApp does NOT support silent mode — the flag is ignored for WhatsApp.
 ## Codex CLI Flags
 
 - `exec "task"` — non-interactive run
-- `resume <session-id> "task"` — continue a previous Codex session
+- `resume <thread-id> "task"` — continue a previous Codex session
 - `--dangerously-bypass-approvals-and-sandbox` — no confirmation prompts
 - `--json --output-last-message` — real-time activity tracking + final output capture
 - `--full-auto` — optional safer automation mode
@@ -610,26 +610,26 @@ Codex sessions can be resumed to continue previous conversations. This is useful
 
 ### Resume ID — Critical Rule
 
-`--resume` takes the **Codex session ID**, not `run_id` or `wake_id`.
+`--resume` takes the **Codex thread_id**, not `run_id` or `wake_id`.
 
 Correct source:
 
 ```text
-📝 Session registered: <session-id-here>
+📝 Session registered: <thread-id-here>
 ```
 
-That is the value to pass as `--resume <session-id>`.
+That is the value to pass as `--resume <thread-id>`.
 
 ### How to Resume
 
-When a task completes, the session ID is captured and saved to `~/.openclaw/codex_sessions.json`.
+When a task completes, the Codex `thread_id` is captured and saved to `~/.openclaw/codex_sessions.json`.
 
 ```bash
 nohup python3 {baseDir}/run-task.py \
   --task "$(cat /tmp/codex-prompt.txt)" \
   --project ~/projects/my-project \
   --session "SESSION_KEY" \
-  --resume <session-id> \
+  --resume <thread-id> \
   > /tmp/codex-run.log 2>&1 &
 ```
 
@@ -644,7 +644,7 @@ from session_registry import list_recent_sessions, find_session_by_label
 
 recent = list_recent_sessions(hours=72)
 for session in recent:
-    print(f"{session['session_id']}: {session['label']} ({session['status']})")
+    print(f"{session['thread_id']}: {session['label']} ({session['status']})")
 ```
 
 Or manually inspect:
@@ -669,7 +669,7 @@ cat ~/.openclaw/codex_sessions.json
 
 ### Resume Failure Handling
 
-If a session ID is invalid or expired:
+If a thread_id is invalid or expired:
 
 - error message sent to channel with suggestion to start fresh
 - process exits cleanly
@@ -677,7 +677,7 @@ If a session ID is invalid or expired:
 
 Common resume failures:
 
-- invalid session ID
+- invalid thread_id
 - expired/non-resumable session
 - session from unrelated context or wrong project expectation
 
@@ -696,7 +696,7 @@ nohup python3 {baseDir}/run-task.py \
   > /tmp/codex-run.log 2>&1 &
 ```
 
-**Step 2: Find session ID**
+**Step 2: Find thread_id**
 
 ```bash
 tail /tmp/codex-run.log
@@ -712,7 +712,7 @@ nohup python3 {baseDir}/run-task.py \
   --task "$(cat /tmp/implement-prompt.txt)" \
   --project ~/projects/project-x \
   --session "SESSION_KEY" \
-  --resume <session-id-from-step-1> \
+  --resume <thread-id-from-step-1> \
   --session-label "Project X auth implementation" \
   > /tmp/codex-run2.log 2>&1 &
 ```
@@ -742,7 +742,7 @@ This is the current intended behavior of the Codex adaptation:
 - wake continuity: the agent gets a continuation turn after Codex finishes
 - Telegram thread routing is strict by default
 - WhatsApp gets direct result delivery plus agent wake
-- session resumption uses Codex session IDs captured from the JSON event stream
+- session resumption uses Codex `thread_id` values captured from the JSON event stream
 
 Current locally validated behavior in this repo:
 

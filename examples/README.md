@@ -103,7 +103,7 @@ nohup python3 ~/.openclaw/workspace/skills/codex-cli-task/run-task.py \
   > /tmp/codex-phase1.log 2>&1 &
 ```
 
-Wait for completion. Find the session ID:
+Wait for completion. Find the thread_id:
 
 ```bash
 # From logs
@@ -114,7 +114,7 @@ grep "Session registered" /tmp/codex-phase1.log
 python3 -c "
 from session_registry import find_session_by_label
 s = find_session_by_label('my-service architecture')
-print(s['session_id'])
+print(s['thread_id'])
 "
 ```
 

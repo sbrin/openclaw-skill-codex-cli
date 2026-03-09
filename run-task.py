@@ -7,7 +7,7 @@ Usage:
   nohup python3 run-task.py -t "Build X" -p ~/projects/x -s "SESSION_KEY" > /tmp/codex-run.log 2>&1 &
 
 Resume previous session:
-  nohup python3 run-task.py -t "Continue with Y" -p ~/projects/x -s "SESSION_KEY" --resume <session-id> > /tmp/codex-run.log 2>&1 &
+  nohup python3 run-task.py -t "Continue with Y" -p ~/projects/x -s "SESSION_KEY" --resume <thread-id> > /tmp/codex-run.log 2>&1 &
 
 Features:
   - Session resumption: continue previous Codex conversations
@@ -729,7 +729,7 @@ def format_tokens(n: int) -> str:
 
 
 def parse_stream_line(line: str, state: dict):
-    """Parse Codex experimental JSON events for activity tracking and session capture."""
+    """Parse Codex JSON events for activity tracking and thread_id capture."""
     try:
         data = json.loads(line)
     except json.JSONDecodeError:
@@ -742,10 +742,10 @@ def parse_stream_line(line: str, state: dict):
     state["last_event_time"] = time.time()
     state["events_since_heartbeat"] += 1
 
-    if event_type == "session.created":
-        session_id = data.get("session_id")
-        if session_id:
-            state["session_id"] = session_id
+    if event_type == "thread.started":
+        codex_thread_id = data.get("thread_id")
+        if codex_thread_id:
+            state["codex_thread_id"] = codex_thread_id
         return
 
     if event_type == "token_count":
@@ -834,7 +834,7 @@ def main():
     parser.add_argument("--output", "-o", help="Output file (default: /tmp/codex-<timestamp>.txt)")
     parser.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT,
                         help=f"Max runtime in seconds (default: {DEFAULT_TIMEOUT}s = {DEFAULT_TIMEOUT//60}min)")
-    parser.add_argument("--resume", help="Resume from previous Codex session ID")
+    parser.add_argument("--resume", help="Resume from previous Codex thread_id")
     parser.add_argument("--session-label", help="Human-readable label for this session (e.g., 'Research on X')")
     parser.add_argument("--model", help="Optional Codex model override")
     parser.add_argument("--no-search", action="store_true", help="Disable Codex web search (enabled by default)")
@@ -1158,7 +1158,7 @@ def main():
             "tool_calls": 0,
             "files_written": [],
             "last_activity": "",
-            "session_id": None,
+            "codex_thread_id": None,
             "last_event_time": time.time(),
             "output_tokens": 0,
             "events_since_heartbeat": 0,
@@ -1265,7 +1265,7 @@ def main():
         print(f"{status} Done (exit {exit_code}, {output_size} chars, {elapsed_min}min)", file=sys.stderr)
 
         # Register session in registry
-        if state.get("session_id"):
+        if state.get("codex_thread_id"):
             try:
                 session_status = "timeout" if timed_out else ("completed" if exit_code == 0 else "failed")
                 update_fields = {
@@ -1277,10 +1277,10 @@ def main():
                 }
                 if args.session_label:
                     update_fields["label"] = args.session_label
-                updated = update_session(state["session_id"], **update_fields)
+                updated = update_session(state["codex_thread_id"], **update_fields)
                 if not updated:
                     register_session(
-                        session_id=state["session_id"],
+                        thread_id=state["codex_thread_id"],
                         label=args.session_label,
                         task=args.task,
                         project_dir=str(project),
@@ -1288,7 +1288,7 @@ def main():
                         output_file=output_file,
                         status=session_status
                     )
-                print(f"📝 Session registered: {state['session_id']}", file=sys.stderr)
+                print(f"📝 Session registered: {state['codex_thread_id']}", file=sys.stderr)
             except Exception as e:
                 print(f"⚠️  Failed to register session: {e}", file=sys.stderr)
 

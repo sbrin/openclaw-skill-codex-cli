@@ -60,4 +60,4 @@ For each scenario, record:
 - Always launch long runs via `nohup`.
 - For Telegram thread runs, do `--validate-only` first.
 - For iterate-mode checks, there must be a visible decision turn before the next launch.
-- When testing resume, use the real Codex session ID, not `run_id` or `wake_id`.
+- When testing resume, use the real Codex `thread_id`, not `run_id` or `wake_id`.
