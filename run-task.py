@@ -89,6 +89,17 @@ def extract_group_jid(session_key: str) -> Optional[str]:
     return None
 
 
+def extract_telegram_user_id(session_key: str) -> Optional[str]:
+    """Extract Telegram user target from user-scope session key."""
+    if not session_key:
+        return None
+    parts = session_key.split(":")
+    for i, part in enumerate(parts):
+        if part == "telegram" and i + 2 < len(parts) and parts[i + 1] == "user":
+            return parts[i + 2]
+    return None
+
+
 def extract_thread_id(session_key: str) -> Optional[str]:
     """Extract Telegram thread ID from session key (e.g. agent:main:main:thread:369520 or :topic:369520)."""
     if not session_key:
@@ -133,6 +144,10 @@ def detect_channel(session_key: str):
     # Explicit internally-resolved overrides take priority
     if NOTIFY_CHANNEL_OVERRIDE and NOTIFY_TARGET_OVERRIDE:
         return NOTIFY_CHANNEL_OVERRIDE, NOTIFY_TARGET_OVERRIDE
+    # Telegram user-scope session key
+    tg_user = extract_telegram_user_id(session_key or "")
+    if tg_user:
+        return "telegram", tg_user
     # WhatsApp: extract JID from session key
     jid = extract_group_jid(session_key or "")
     if jid:
