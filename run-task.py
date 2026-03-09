@@ -100,6 +100,34 @@ def extract_thread_id(session_key: str) -> Optional[str]:
     return None
 
 
+def extract_telegram_target_from_text(txt: str) -> Optional[str]:
+    """Extract Telegram target from embedded envelope text.
+
+    Prefer `chat_id` for forum groups, fallback to `sender_id` for DM threads.
+    """
+    if not txt:
+        return None
+
+    for field in ("chat_id", "sender_id"):
+        m = re.search(rf'"{field}"\s*:\s*"?(-?\d+)"?', txt)
+        if m:
+            return m.group(1)
+
+    try:
+        start = txt.find("{")
+        end = txt.rfind("}")
+        if start != -1 and end != -1 and end > start:
+            meta = json.loads(txt[start:end + 1])
+            for field in ("chat_id", "sender_id"):
+                value = meta.get(field)
+                if value is not None and str(value) != "":
+                    return str(value)
+    except Exception:
+        pass
+
+    return None
+
+
 def detect_channel(session_key: str):
     """Return (channel, target) for notifications based on session key or CLI overrides."""
     # Explicit internally-resolved overrides take priority
@@ -233,14 +261,9 @@ def has_recent_thread_session(token: str, telegram_target: str, max_age_hours: i
                             continue
                         for b in msg.get("content") or []:
                             txt = b.get("text", "") if isinstance(b, dict) else ""
-                            if "sender_id" in txt:
-                                start = txt.find("{")
-                                end = txt.rfind("}")
-                                if start != -1 and end != -1 and end > start:
-                                    meta = json.loads(txt[start:end + 1])
-                                    sid = str(meta.get("sender_id", ""))
-                                    if sid and sid == str(telegram_target):
-                                        return True
+                            target = extract_telegram_target_from_text(txt)
+                            if target and target == str(telegram_target):
+                                return True
     except Exception:
         pass
 
@@ -271,7 +294,8 @@ def resolve_thread_meta_from_local_files(thread_id: str) -> Optional[dict]:
     session_id = p.name.rsplit("-topic-", 1)[0]
     telegram_target = None
 
-    # Try to extract sender_id from early user envelope messages
+    # Try to extract Telegram target from early user envelope messages.
+    # For forum groups the envelope target is `chat_id`; for DM threads it's `sender_id`.
     try:
         with p.open("r", encoding="utf-8") as f:
             for i, line in enumerate(f):
@@ -286,25 +310,10 @@ def resolve_thread_meta_from_local_files(thread_id: str) -> Optional[dict]:
                 blocks = msg.get("content") or []
                 for b in blocks:
                     txt = b.get("text", "") if isinstance(b, dict) else ""
-                    if "sender_id" in txt:
-                        # Robust extraction: message may contain multiple JSON blocks,
-                        # so wide {..} parsing can fail. Prefer direct regex first.
-                        m = re.search(r'"sender_id"\s*:\s*"?(\d+)"?', txt)
-                        if m:
-                            telegram_target = m.group(1)
-                            break
-                        try:
-                            # Fallback: envelope is embedded json in markdown fence
-                            start = txt.find("{")
-                            end = txt.rfind("}")
-                            if start != -1 and end != -1 and end > start:
-                                meta = json.loads(txt[start:end + 1])
-                                sid = meta.get("sender_id")
-                                if sid:
-                                    telegram_target = str(sid)
-                                    break
-                        except Exception:
-                            pass
+                    target = extract_telegram_target_from_text(txt)
+                    if target:
+                        telegram_target = target
+                        break
                 if telegram_target:
                     break
     except Exception:
