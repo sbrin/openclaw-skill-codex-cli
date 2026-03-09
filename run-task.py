@@ -692,6 +692,32 @@ def kill_process_graceful(proc: subprocess.Popen, timeout_grace: int = 10):
         pass
 
 
+def prepare_output_file(path_str: str):
+    """Create parent dirs and an empty placeholder file up front."""
+    path = Path(path_str)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("")
+
+
+def materialize_output_file(path_str: str, preferred_text: str = "", stderr_text: str = "") -> str:
+    """Return existing output or persist a fallback so downstream always has a file."""
+    path = Path(path_str)
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    existing = ""
+    try:
+        existing = path.read_text()
+    except Exception:
+        pass
+
+    if existing:
+        return existing
+
+    final_text = preferred_text or stderr_text or "(no output captured)"
+    path.write_text(final_text)
+    return final_text
+
+
 def format_tokens(n: int) -> str:
     """Format token count: 1234 → '1.2K', 12345 → '12K'."""
     if n < 1000:
@@ -857,6 +883,10 @@ def main():
     pid_file = None
     proc = None
     notify_script_path = None
+    stderr_output = ""
+    output = ""
+    crash_output = ""
+    state = {"last_message": ""}
 
     try:
         token = get_token() if args.session else None
@@ -983,6 +1013,7 @@ def main():
         # Codex should run inside a git repo; initialize one if needed.
         if not (project / ".git").exists():
             subprocess.run(["git", "init", "-q"], cwd=str(project), capture_output=True)
+        prepare_output_file(output_file)
 
         print(f"🔧 Starting OpenAI Codex...", file=sys.stderr)
         print(f"   Task: {args.task[:100]}", file=sys.stderr)
@@ -1100,7 +1131,7 @@ def main():
             codex_cmd.append("--search")
         codex_cmd.append("exec")
         codex_cmd.extend([
-            "--experimental-json",
+            "--json",
             "--output-last-message", output_file,
             "-C", str(project),
         ])
@@ -1199,7 +1230,6 @@ def main():
                 send_channel(token, args.session or "", " | ".join(parts), silent=True, thread_id=thread_id, reply_to=reply_to_msg_id)
 
         read_thread.join(timeout=5)
-        stderr_output = ""
         try:
             stderr_output = proc.stderr.read() or ""
         except Exception:
@@ -1220,14 +1250,11 @@ def main():
                 print("📨 Resume failure notified", file=sys.stderr)
             return  # Exit early, don't process output
 
-        output = ""
-        try:
-            output = Path(output_file).read_text()
-        except Exception:
-            pass
-        if not output:
-            output = state.get("last_message", "") or stderr_output or "(no output captured)"
-            Path(output_file).write_text(output)
+        output = materialize_output_file(
+            output_file,
+            preferred_text=state.get("last_message", ""),
+            stderr_text=stderr_output,
+        )
 
         exit_code = proc.returncode if proc.returncode is not None else -1
         output_size = len(output)
@@ -1336,6 +1363,7 @@ def main():
         print(f"💥 Crash: {e}", file=sys.stderr)
         import traceback
         traceback.print_exc(file=sys.stderr)
+        crash_output = f"Runner crashed: {str(e)[:1000]}"
 
         if proc and proc.poll() is None:
             kill_process_graceful(proc)
@@ -1358,6 +1386,14 @@ def main():
             send_channel(token, args.session or "", f"💥 OpenAI Codex crash: {str(e)[:200]}", thread_id=thread_id, reply_to=reply_to_msg_id)
 
     finally:
+        try:
+            materialize_output_file(
+                output_file,
+                preferred_text=output or state.get("last_message", "") or crash_output,
+                stderr_text=stderr_output,
+            )
+        except Exception:
+            pass
         # Cleanup PID file
         if pid_file and pid_file.exists():
             pid_file.unlink(missing_ok=True)

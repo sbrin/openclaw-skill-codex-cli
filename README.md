@@ -50,7 +50,7 @@ Codex billing follows your Codex authentication/setup.
          │                             ┌──────────────────────┐
          │                             │   OpenAI Codex CLI    │
          │                             │   codex exec "task"   │
-         │                             │   --experimental-json │
+         │                             │   --json              │
          │                             └──────────┬───────────┘
          │                                        │
          │                          ┌─────────────┼─────────────┐

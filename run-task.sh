@@ -15,6 +15,8 @@ LOG_FILE="/tmp/${TASK_ID}-run.log"
 mkdir -p "$PROJECT_DIR"
 cd "$PROJECT_DIR"
 [ -d .git ] || git init -q
+mkdir -p "$(dirname "$OUTPUT_FILE")"
+: > "$OUTPUT_FILE"
 
 # Get gateway token
 TOKEN=$(python3 -c "import json; print(json.load(open('$HOME/.openclaw/openclaw.json'))['gateway']['auth']['token'])")
@@ -29,6 +31,14 @@ codex --search exec \
   > "$LOG_FILE" 2>&1
 
 EXIT_CODE=$?
+
+if [ ! -s "$OUTPUT_FILE" ]; then
+    if [ -s "$LOG_FILE" ]; then
+        tail -c 4000 "$LOG_FILE" > "$OUTPUT_FILE" || printf '(no output captured)\n' > "$OUTPUT_FILE"
+    else
+        printf '(no output captured)\n' > "$OUTPUT_FILE"
+    fi
+fi
 
 # Truncate output for notification (first 2000 chars)
 RESULT=$(head -c 2000 "$OUTPUT_FILE")

@@ -378,7 +378,7 @@ WhatsApp does NOT support silent mode — the flag is ignored for WhatsApp.
 - `exec "task"` — non-interactive run
 - `resume <session-id> "task"` — continue a previous Codex session
 - `--dangerously-bypass-approvals-and-sandbox` — no confirmation prompts
-- `--experimental-json --output-last-message` — real-time activity tracking + final output capture
+- `--json --output-last-message` — real-time activity tracking + final output capture
 - `--full-auto` — optional safer automation mode
 
 ### Why NOT exec/pty?
@@ -746,7 +746,7 @@ This is the current intended behavior of the Codex adaptation:
 
 Current locally validated behavior in this repo:
 
-- Codex `exec` via `--experimental-json`
+- Codex `exec` via `--json`
 - Codex `resume`
 - output capture via `--output-last-message`
 - OpenClaw-style async launch / heartbeat / completion flow in the runner logic
