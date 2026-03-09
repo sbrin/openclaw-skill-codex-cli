@@ -45,9 +45,9 @@ RESULT=$(head -c 2000 "$OUTPUT_FILE")
 FULL_SIZE=$(wc -c < "$OUTPUT_FILE")
 
 if [ $EXIT_CODE -eq 0 ]; then
-    MSG="✅ OpenAI Codex задача завершена!\n\n**Задача:** ${TASK:0:150}\n**Проект:** $PROJECT_DIR\n**Результат** (${FULL_SIZE} bytes):\n\n${RESULT}\n\n📁 Полный вывод: $OUTPUT_FILE"
+    MSG="✅ OpenAI Codex task completed!\n\n**Task:** ${TASK:0:150}\n**Project:** $PROJECT_DIR\n**Result** (${FULL_SIZE} bytes):\n\n${RESULT}\n\n📁 Full output: $OUTPUT_FILE"
 else
-    MSG="❌ OpenAI Codex ошибка (exit $EXIT_CODE)\n\n**Задача:** ${TASK:0:150}\n**Проект:** $PROJECT_DIR\n\n${RESULT}"
+    MSG="❌ OpenAI Codex error (exit $EXIT_CODE)\n\n**Task:** ${TASK:0:150}\n**Project:** $PROJECT_DIR\n\n${RESULT}"
 fi
 
 # Notify via sessions_send

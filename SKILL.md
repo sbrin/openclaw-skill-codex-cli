@@ -46,9 +46,9 @@ Give it prompts the same way you'd talk to a smart human — natural language, f
 
 When user asks things like:
 
-- "прогони все тесты"
+- "run all tests"
 - "run tests"
-- "проверь что всё работает"
+- "check if everything is working"
 
 it means **run the full E2E operator validation flow** for `run-task.py` routing + notifications.
 
