@@ -417,20 +417,14 @@ def send_telegram_direct(
         print("⚠ send_telegram_direct: no bot token found", file=sys.stderr)
         return False
     try:
-        payload: dict = {
-            "chat_id": chat_id,
-            "text": text,
-            "disable_notification": silent,
-        }
-        if parse_mode:
-            payload["parse_mode"] = parse_mode
-        # Forum general topic (`topic:1`) is a special case: Telegram often rejects
-        # `message_thread_id=1` with "message thread not found". In that case send
-        # to the chat without message_thread_id so the message lands in General.
-        if thread_id and str(thread_id) != "1":
-            payload["message_thread_id"] = int(thread_id)
-        if reply_to:
-            payload["reply_to_message_id"] = int(reply_to)
+        payload = build_telegram_send_payload(
+            chat_id=chat_id,
+            text=text,
+            thread_id=thread_id,
+            reply_to=reply_to,
+            silent=silent,
+            parse_mode=parse_mode,
+        )
         resp = requests.post(
             f"https://api.telegram.org/bot{bot_token}/sendMessage",
             json=payload,
@@ -443,6 +437,54 @@ def send_telegram_direct(
     except Exception as e:
         print(f"⚠ send_telegram_direct: exception — {e}", file=sys.stderr)
         return False
+
+
+def build_telegram_send_payload(
+    chat_id: str,
+    text: Optional[str] = None,
+    thread_id: Optional[str] = None,
+    reply_to: Optional[str] = None,
+    silent: bool = False,
+    parse_mode: Optional[str] = None,
+) -> dict:
+    """Build a Telegram Bot API payload with General forum topic special-casing."""
+    payload = {
+        "chat_id": str(chat_id),
+        "disable_notification": bool(silent),
+    }
+    if text is not None:
+        payload["text"] = text
+    # Forum General is addressed by omitting message_thread_id entirely.
+    if thread_id and str(thread_id) != "1":
+        payload["message_thread_id"] = int(thread_id)
+    if reply_to:
+        payload["reply_to_message_id"] = int(reply_to)
+    if parse_mode:
+        payload["parse_mode"] = parse_mode
+    return payload
+
+
+def render_progress_notify_script(bot_token: str, chat_id: str, thread_id: Optional[str]) -> str:
+    """Return the on-disk helper script used for Codex mid-task progress updates."""
+    payload = build_telegram_send_payload(chat_id=chat_id, thread_id=thread_id, silent=True)
+    return (
+        "#!/usr/bin/env python3\n"
+        "import sys, json\n"
+        "try:\n"
+        "    import urllib.request\n"
+        "    raw = sys.argv[1] if len(sys.argv) > 1 else 'Progress update'\n"
+        "    prefix = '📡 🟢 Codex: '\n"
+        "    msg = raw if raw.startswith(prefix) else (prefix + raw)\n"
+        f"    payload = {repr(payload)}\n"
+        "    payload['text'] = msg\n"
+        "    payload = json.dumps(payload).encode()\n"
+        f"    req = urllib.request.Request("
+        f"'https://api.telegram.org/bot{bot_token}/sendMessage', "
+        f"data=payload, headers={{'Content-Type': 'application/json'}})\n"
+        "    urllib.request.urlopen(req, timeout=10)\n"
+        "except Exception as e:\n"
+        "    print(f'notify error: {e}', file=sys.stderr)\n"
+    )
 
 
 def send_channel(token: str, session_key: str, text: str, bg_prefix: bool = True, silent: bool = False, thread_id: Optional[str] = None, reply_to: Optional[str] = None):
@@ -1138,21 +1180,11 @@ def main():
                 notify_script_path = f"/tmp/codex-notify-{os.getpid()}.py"
                 with open(notify_script_path, "w") as _nf:
                     _nf.write(
-                        "#!/usr/bin/env python3\n"
-                        "import sys, json\n"
-                        "try:\n"
-                        "    import urllib.request\n"
-                        f"    raw = sys.argv[1] if len(sys.argv) > 1 else 'Progress update'\n"
-                        f"    prefix = '📡 🟢 Codex: '\n"
-                        f"    msg = raw if raw.startswith(prefix) else (prefix + raw)\n"
-                        f"    payload = json.dumps({{'chat_id': '{_tgt}', 'text': msg, "
-                        f"'message_thread_id': {thread_id}, 'disable_notification': True}}).encode()\n"
-                        f"    req = urllib.request.Request("
-                        f"'https://api.telegram.org/bot{bot_token_for_script}/sendMessage', "
-                        f"data=payload, headers={{'Content-Type': 'application/json'}})\n"
-                        f"    urllib.request.urlopen(req, timeout=10)\n"
-                        "except Exception as e:\n"
-                        "    print(f'notify error: {e}', file=sys.stderr)\n"
+                        render_progress_notify_script(
+                            bot_token=bot_token_for_script,
+                            chat_id=_tgt,
+                            thread_id=thread_id,
+                        )
                     )
                 os.chmod(notify_script_path, 0o755)
 
